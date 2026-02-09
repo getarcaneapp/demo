@@ -1,12 +1,9 @@
-# Demo Kuma
+# Demo Arcane
 
 Create a demo site for your Docker based web application.
 
-Live Demo (Uptime Kuma):
-https://demo.kuma.pet/start-demo
-
-ExerciseDiary (2 mins demo) - Another selfhosted app which I found on Reddit:
-https://exercisediary-demo.kuma.pet/start-demo
+Live Demo (Arcane):
+https://demo.getarcane.app/start-demo
 
 ![image](https://github.com/louislam/demo-kuma/assets/1336778/f15b5e46-5c98-419e-98e4-a2d52b91780c)
 
@@ -23,12 +20,15 @@ https://exercisediary-demo.kuma.pet/start-demo
 
 1. Create a stack directory `demo-kuma`.
 1. Download `compose.yaml` and `compose-demo.yaml` into the directory.
-   - `compose.yaml` = Demo Kuma stack
+  - `compose.yaml` = Demo Kuma stack
      - You should go through all variables in the `environment:` section.
-   - `compose-demo.yaml` = The stack that you want to provide a demo
-     - By default, the main service should be `main` and the network name should be `demo-kuma_default`.
-     - If your stack name is not `demo-kuma`, you should change the network name to `{your-name}_default` 
-1. `docker compose up -d`.
+  - `compose-demo.yaml` = The stack that you want to provide a demo (Arcane)
+     - By default, the main service should be `main`.
+     - If you run the stack with a different project name, set `DOCKER_NETWORK_NAME` to match that network (e.g., `{project}_default`).
+1. Set Arcane secrets in `.env` (required):
+    - `ENCRYPTION_KEY`
+    - `JWT_SECRET`
+1. `docker compose up -d --build`.
 1. Go to http://localhost:3003/start-demo to test the demo.
 
 ## How it works?

@@ -1,6 +1,9 @@
+name: demo-kuma
+
 services:
   demo-kuma:
-    image: louislam/demo-kuma:2
+    build: .
+    image: demo-kuma:arcane-local
     restart: unless-stopped
     ports:
       - 3003:80
@@ -9,20 +12,23 @@ services:
       - ./compose-demo.yaml:/app/compose-demo.yaml
     environment:
       # Demo Website Name
-      - WEBSITE_NAME=Uptime Kuma Demo
+      - WEBSITE_NAME=Arcane Demo
 
       # Stack Prefix (Should a special prefix, because demo-kuma will manage (start/shutdown) all stacks with this)
-      - STACK_PREFIX=uptime-kuma-demo
+      - STACK_PREFIX=arcane-demo
 
       # Specify the service name of the stack
       - STACK_MAIN_SERVICE_NAME=main
 
       # Specify the port of the service
-      - STACK_MAIN_SERVICE_PORT=3001
+      - STACK_MAIN_SERVICE_PORT=3552
 
       # The entry path of the demo
       # Should be start with /
       - STACK_MAIN_SERVICE_ENTRY_PATH=/
+
+      # The health path used to check readiness
+      - STACK_HEALTH_PATH=/api/health
 
       # Session Time (Seconds)
       - SESSION_TIME=600
@@ -36,7 +42,11 @@ services:
       - SHOW_ENTRY=false
 
       # Install URL for the "Install now" button
-      - INSTALL_URL=https://github.com/louislam/uptime-kuma
+      - INSTALL_URL=https://demo.getarcane.app
+
+      # Arcane secrets (required)
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
 
       # Docker Network Name
       # The demo instance must be in the same network as the demo-kuma
@@ -48,5 +58,3 @@ services:
   #   image: cloudflare/cloudflared:latest
   #   command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
   #   restart: unless-stopped
-
-

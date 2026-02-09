@@ -1,16 +1,30 @@
 services:
   # Main Service that you want to create a demo
   main:
-    image: louislam/uptime-kuma:1
+    image: ghcr.io/getarcaneapp/arcane:latest
     restart: no
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane-data:/app/data
+      - arcane-projects:/app/data/projects
+
+    environment:
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
 
     # The network name should be the same as the one in compose.yaml, so that demo-kuma can find it and access it
     # You should keep this
     networks:
-      - demo-kuma_default
+      - demo-kuma
 
 networks:
   # The network name should be the same as the one in compose.yaml, so that demo-kuma can find it and access it
   # You should keep this
-  demo-kuma_default:
+  demo-kuma:
     external: true
+    name: ${DOCKER_NETWORK_NAME:-demo-kuma_default}
+
+volumes:
+  arcane-data:
+  arcane-projects:

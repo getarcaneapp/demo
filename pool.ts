@@ -2,7 +2,7 @@ import childProcess from "child_process";
 import childProcessAsync from "promisify-child-process";
 import { sleep } from "./util";
 import crypto from "crypto";
-import { sessionTime, stackPrefix, startTimeout, servicePort, entryPath, dockerNetwork, serviceName } from "./config";
+import { sessionTime, stackPrefix, startTimeout, servicePort, entryPath, healthPath, dockerNetwork, serviceName } from "./config";
 
 export class Pool {
     /**
@@ -42,7 +42,7 @@ export class Pool {
             try {
                 let ip = await this.getServiceIP(sessionID);
                 baseURL = `http://${ip}:${servicePort}`;
-                let entryURL = baseURL + entryPath;
+                let entryURL = baseURL + healthPath;
 
                 console.log("Checking entry: " + entryURL);
 
