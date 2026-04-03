@@ -40,7 +40,7 @@ https://demo.getarcane.app/start-demo
 - The default session lifetime is 10 minutes (`SESSION_TIME=600`).
 - Sessions are torn down early if the browser page disappears.
   The page sends a best-effort close signal immediately, and the server also expires sessions after a short missed-heartbeat window (`SESSION_IDLE_TIMEOUT=30`).
-- Set `APP_URL` to the public URL of the demo site in production, for example `https://demo.getarcane.app`.
+- `APP_URL` must be set to the public origin of the demo site, for example `https://demo.getarcane.app`.
 - Each session starts three containers inside the demo stack:
   - `dind`: isolated Docker daemon (`docker:29-dind`)
   - `docker-socket-proxy`: restricted proxy in front of that daemon

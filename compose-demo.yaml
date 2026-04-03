@@ -73,7 +73,7 @@ services:
       - arcane-projects:/app/data/projects
 
     environment:
-      - APP_URL=${APP_URL:-http://localhost:3003}
+      - APP_URL=${APP_URL}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - DOCKER_HOST=tcp://docker-socket-proxy:2375

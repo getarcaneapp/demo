@@ -17,6 +17,12 @@ fi
 
 ENCRYPTION_KEY="${ENCRYPTION_KEY:-${persisted_encryption_key}}"
 JWT_SECRET="${JWT_SECRET:-${persisted_jwt_secret}}"
+APP_URL="${APP_URL:-}"
+
+if [ -z "${APP_URL}" ]; then
+    echo "APP_URL must be set to the public demo origin, e.g. https://demo.getarcane.app" >&2
+    exit 1
+fi
 
 if [ -z "${ENCRYPTION_KEY}" ]; then
     ENCRYPTION_KEY="$(openssl rand -base64 32)"
@@ -34,5 +40,6 @@ EOF
 
 export ENCRYPTION_KEY
 export JWT_SECRET
+export APP_URL
 
 exec tsx ./server.ts
