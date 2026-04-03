@@ -1,26 +1,91 @@
 services:
-  # Main Service that you want to create a demo
+  dind:
+    image: docker:29-dind
+    privileged: true
+    restart: no
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    command:
+      - dockerd
+      - --host=unix:///var/run/docker.sock
+      - --tls=false
+    volumes:
+      - dind-socket:/var/run
+      - dind-data:/var/lib/docker
+    healthcheck:
+      test: ["CMD-SHELL", "docker --host=unix:///var/run/docker.sock info >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    privileged: true
+    restart: no
+    depends_on:
+      dind:
+        condition: service_healthy
+    environment:
+      - SOCKET_PATH=/var/run/docker.sock
+      - EVENTS=1
+      - PING=1
+      - VERSION=1
+      - AUTH=0
+      - SECRETS=0
+      - POST=1
+      - BUILD=0
+      - COMMIT=0
+      - CONFIGS=0
+      - CONTAINERS=1
+      - DISTRIBUTION=0
+      - EXEC=1
+      - IMAGES=1
+      - INFO=1
+      - NETWORKS=1
+      - NODES=0
+      - PLUGINS=0
+      - SERVICES=0
+      - SESSION=0
+      - SWARM=0
+      - SYSTEM=0
+      - TASKS=0
+      - VOLUMES=1
+    volumes:
+      - dind-socket:/var/run
+
   main:
     image: ghcr.io/getarcaneapp/arcane:latest
     restart: no
+    pull_policy: missing
 
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - arcane-data:/app/data
       - arcane-projects:/app/data/projects
 
     environment:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
 
-    # The network name should be the same as the one in compose.yaml, so that demo-kuma can find it and access it
-    # You should keep this
     networks:
+      - default
       - demo-kuma
+    depends_on:
+      docker-socket-proxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3552/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "2"
 
 networks:
-  # The network name should be the same as the one in compose.yaml, so that demo-kuma can find it and access it
-  # You should keep this
   demo-kuma:
     external: true
     name: ${DOCKER_NETWORK_NAME:-demo-kuma_default}
@@ -28,3 +93,5 @@ networks:
 volumes:
   arcane-data:
   arcane-projects:
+  dind-data:
+  dind-socket:

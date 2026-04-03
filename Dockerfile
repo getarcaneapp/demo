@@ -7,4 +7,4 @@ COPY --chown=node:node  . .
 RUN npm ci --production
 EXPOSE 80
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["tsx", "./server.ts"]
+CMD ["sh", "./scripts/start-demo-kuma.sh"]

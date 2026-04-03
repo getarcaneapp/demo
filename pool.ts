@@ -1,14 +1,33 @@
-import childProcess from "child_process";
 import childProcessAsync from "promisify-child-process";
 import { sleep } from "./util";
 import crypto from "crypto";
-import { sessionTime, stackPrefix, startTimeout, servicePort, entryPath, healthPath, dockerNetwork, serviceName } from "./config";
+import {
+    sessionTime,
+    stackPrefix,
+    startTimeout,
+    servicePort,
+    healthPath,
+    dockerNetwork,
+    serviceName,
+} from "./config";
+
+interface SessionCredentials {
+    username: string;
+    password: string;
+}
+
+interface SessionInfo {
+    baseURL: string;
+    endSessionTime: number;
+    credentials: SessionCredentials;
+    timeout: NodeJS.Timeout;
+}
 
 export class Pool {
     /**
-     * sessionList[sessionID] = serviceURL
+     * sessionList[sessionID] = session metadata
      */
-    sessionList: Record<string, string> = {};
+    sessionList: Record<string, SessionInfo> = {};
 
     async startInstance() {
         let sessionID : string = "";
@@ -21,82 +40,88 @@ export class Pool {
         }
 
         let timeout : NodeJS.Timeout;
+        let credentials = this.generateCredentials(sessionID);
 
         console.log(`[${sessionID}] Start a session`);
 
-        await childProcessAsync.spawn("docker", [
-            "compose",
-            "--file", "compose-demo.yaml",
-            "-p", `${stackPrefix}-${sessionID}`,
-            "up",
-            "-d",
-        ], {
-            encoding: "utf-8",
-        });
+        try {
+            await this.runDockerCompose(sessionID, [
+                "up",
+                "-d",
+            ]);
 
-        let startStackTime = Date.now();
-        let baseURL = "";
+            let startStackTime = Date.now();
+            let baseURL = "";
 
-        // Wait until the service is opened
-        while (true) {
-            try {
-                let ip = await this.getServiceIP(sessionID);
-                baseURL = `http://${ip}:${servicePort}`;
-                let entryURL = baseURL + healthPath;
+            // Wait until the service is opened
+            while (true) {
+                try {
+                    let ip = await this.getServiceIP(sessionID);
+                    baseURL = `http://${ip}:${servicePort}`;
+                    let entryURL = baseURL + healthPath;
 
-                console.log("Checking entry: " + entryURL);
+                    console.log("Checking entry: " + entryURL);
 
-                // Try to access the index page
-                let res = await fetch(entryURL);
-                await res.text();
+                    let res = await fetch(entryURL);
+                    await res.text();
 
-                if (res.status === 200) {
-                    break;
+                    if (res.status === 200) {
+                        break;
+                    }
+                } catch (e) {
                 }
-            } catch (e) {
+
+                await sleep(2000);
+                if (Date.now() - startStackTime > startTimeout * 1000) {
+                    throw new Error("Start instance timeout");
+                }
             }
 
-            await sleep(2000);
-            if (Date.now() - startStackTime > startTimeout * 1000) {
-                throw new Error("Start instance timeout");
-            }
+            await this.bootstrapArcaneInstance(baseURL, credentials);
+
+            let endSessionTime = Date.now() + sessionTime * 1000;
+
+            // Timer for closing the session
+            timeout = setTimeout(async () => {
+                console.log(`[${sessionID}] Time's up`);
+                await this.stopInstance(sessionID);
+            }, (sessionTime) * 1000);
+
+            this.sessionList[sessionID] = {
+                baseURL,
+                endSessionTime,
+                credentials,
+                timeout,
+            };
+            console.log(`[${sessionID}] Session started`);
+
+            return {
+                sessionID,
+                endSessionTime,
+                credentials,
+            };
+        } catch (error) {
+            await this.stopComposeProject(sessionID);
+            throw error;
         }
-
-        let endSessionTime = Date.now() + sessionTime * 1000;
-
-        // Timer for closing the session
-        setTimeout(async () => {
-            console.log(`[${sessionID}] Time's up`);
-            await this.stopInstance(sessionID);
-            delete this.sessionList[sessionID];
-        }, (sessionTime) * 1000);
-
-        this.sessionList[sessionID] = baseURL;
-        console.log(`[${sessionID}] Session started`);
-
-        return {
-            sessionID,
-            endSessionTime,
-        };
     }
 
     async stopInstance(sessionID : string) {
-        await childProcessAsync.spawn("docker", [
-            "compose",
-            "-f", "compose-demo.yaml",
-            "-p", `${stackPrefix}-${sessionID}`,
-            "down",
-            "--volumes",
-            "--remove-orphans",
-        ], {
-            encoding: "utf-8",
-            env: {
-                ...process.env,
-            },
-        });
+        let session = this.sessionList[sessionID];
+
+        if (session?.timeout) {
+            clearTimeout(session.timeout);
+        }
+
+        await this.stopComposeProject(sessionID);
+        delete this.sessionList[sessionID];
     }
 
     getServiceURL(sessionID : string) : string | undefined {
+        return this.sessionList[sessionID]?.baseURL;
+    }
+
+    getSession(sessionID : string) {
         return this.sessionList[sessionID];
     }
 
@@ -104,7 +129,6 @@ export class Pool {
         let response = await childProcessAsync.spawn("docker", [
             "inspect",
             `${stackPrefix}-${sessionID}-${serviceName}-1`,
-            "--format", "json"
         ], {
             encoding: "utf-8",
         });
@@ -172,21 +196,67 @@ export class Pool {
             for (let stack of list) {
                 if (stack.Name?.startsWith(stackPrefix + "-")) {
                     console.log(`Clearing ${stack.Name}`);
-                    let result = await childProcessAsync.spawn("docker", [
-                        "compose",
-                        "--file", "compose-demo.yaml",
-                        "-p", stack.Name,
-                        "down",
-                        "--volumes",
-                        "--remove-orphans",
-                    ], {
-                        encoding: "utf-8",
-                    });
+                    let sessionID = stack.Name.replace(`${stackPrefix}-`, "");
+                    let result = await this.stopComposeProject(sessionID);
 
                     console.log(result.stdout, result.stderr);
                 }
             }
         }
+
+        this.sessionList = {};
+    }
+
+    private generateCredentials(sessionID : string) : SessionCredentials {
+        return {
+            username: `demo-${sessionID}-${crypto.randomBytes(2).toString("hex")}`,
+            password: `arc-${crypto.randomBytes(9).toString("base64url")}`,
+        };
+    }
+
+    private async bootstrapArcaneInstance(baseURL : string, credentials : SessionCredentials) {
+        await childProcessAsync.spawn("node", [
+            "./scripts/bootstrap-arcane-instance.mjs",
+            baseURL,
+            credentials.username,
+            credentials.password,
+        ], {
+            encoding: "utf-8",
+        });
+    }
+
+    private async runDockerCompose(sessionID : string, args : string[]) {
+        if (!process.env.ENCRYPTION_KEY || !process.env.JWT_SECRET) {
+            throw new Error("ENCRYPTION_KEY and JWT_SECRET must be set");
+        }
+
+        return childProcessAsync.spawn("docker", [
+            "compose",
+            "--file", "compose-demo.yaml",
+            "-p", `${stackPrefix}-${sessionID}`,
+            ...args,
+        ], {
+            encoding: "utf-8",
+            env: {
+                ...process.env,
+                DOCKER_NETWORK_NAME: dockerNetwork,
+            },
+        });
+    }
+
+    private async stopComposeProject(sessionID : string) {
+        try {
+            return await this.runDockerCompose(sessionID, [
+                "down",
+                "--volumes",
+                "--remove-orphans",
+            ]);
+        } catch (error) {
+            console.warn(`[${sessionID}] Failed to stop compose project`, error);
+            return {
+                stdout: "",
+                stderr: "",
+            };
+        }
     }
 }
-

@@ -106,7 +106,7 @@ async function requestHandler(req : http.IncomingMessage, res : http.ServerRespo
 
         } else if (req.url === "/demo-kuma/start-instance") {
             try {
-                let { endSessionTime, sessionID } = await pool.startInstance();
+                let { endSessionTime, sessionID, credentials } = await pool.startInstance();
                 res.writeHead(200, {
                     "Content-Type": "application/json",
                     "Set-Cookie": `session-id=${sessionID}; Max-Age=${sessionTime}; Path=/;`
@@ -115,6 +115,7 @@ async function requestHandler(req : http.IncomingMessage, res : http.ServerRespo
                     ok: true,
                     sessionID,
                     endSessionTime,
+                    credentials,
                 }));
             } catch (e) {
                 console.error(e);
@@ -131,8 +132,11 @@ async function requestHandler(req : http.IncomingMessage, res : http.ServerRespo
                 "Content-Type": "application/json",
             });
 
+            let session = pool.getSession(sessionID);
             res.end(JSON.stringify({
-                ok: pool.sessionList[sessionID] !== undefined,
+                ok: session !== undefined,
+                endSessionTime: session?.endSessionTime,
+                credentials: session?.credentials,
             }));
 
         } else {

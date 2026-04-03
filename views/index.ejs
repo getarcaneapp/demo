@@ -25,7 +25,6 @@
             <p class="mt-4">
                 Your demo has ended, you can start a new demo by refreshing the page.
             </p>
-            <a href="<%= installURL %>" class="btn btn-primary">Install now</a>
         </div>
 
         <div class="loading" v-if="loading">
@@ -35,7 +34,13 @@
     </div>
 
     <div class="fixed" v-if="showFixed">
-        {{ countdown }} <a href="<%= installURL %>" target="_blank">Install now</a>
+        <div>{{ countdown }}</div>
+        <div v-if="credentials">
+            Login:
+            <strong>{{ credentials.username }}</strong>
+            /
+            <strong>{{ credentials.password }}</strong>
+        </div>
     </div>
 
     <iframe :src="iframeSrc" v-if="iframeSrc"></iframe>
@@ -58,6 +63,7 @@
                 countdown: "00:00",
                 showFixed: false,
                 showEnd: false,
+                credentials: null,
             }
         },
         computed: {
@@ -75,8 +81,14 @@
                     if (obj.ok) {
                         this.showEntry = false;
                         this.iframeSrc = entryPath;
+                        this.credentials = obj.credentials || this.readStoredCredentials();
+                        this.storeCredentials(this.credentials);
+                        if (obj.endSessionTime) {
+                            localStorage.setItem("endSessionTime", obj.endSessionTime);
+                        }
                         this.startTimer();
                     } else {
+                        this.clearStoredCredentials();
                         this.entryAction();
                     }
                 } catch (e) {
@@ -106,8 +118,11 @@
                     if (res.status === 200 && obj.ok) {
                         this.loading = false;
                         this.iframeSrc = entryPath;
+                        this.credentials = obj.credentials || null;
+                        this.showEnd = false;
 
                         localStorage.setItem("endSessionTime", obj.endSessionTime);
+                        this.storeCredentials(obj.credentials);
                         this.startTimer();
 
                     } else {
@@ -129,7 +144,7 @@
                 }
 
                 this.showFixed = true;
-                let endSessionTime = localStorage.getItem("endSessionTime");
+                let endSessionTime = parseInt(localStorage.getItem("endSessionTime") || "0");
 
 
                 timer = setInterval(() => {
@@ -145,12 +160,41 @@
 
                     if (distance <= 0) {
                         clearInterval(timer);
+                        timer = null;
                         this.countdown = "00:00";
                         this.iframeSrc = "";
                         this.showEnd = true;
                         this.showFixed = false;
+                        this.credentials = null;
+                        this.clearStoredCredentials();
+                        localStorage.removeItem("endSessionTime");
                     }
                 }, 1000);
+            },
+
+            storeCredentials(credentials) {
+                if (!credentials) {
+                    return;
+                }
+
+                localStorage.setItem("sessionCredentials", JSON.stringify(credentials));
+            },
+
+            readStoredCredentials() {
+                let raw = localStorage.getItem("sessionCredentials");
+                if (!raw) {
+                    return null;
+                }
+
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return null;
+                }
+            },
+
+            clearStoredCredentials() {
+                localStorage.removeItem("sessionCredentials");
             },
         }
     }).mount('#app');

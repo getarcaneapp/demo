@@ -10,6 +10,7 @@ services:
     volumes:
       - ./:/app
       - /var/run/docker.sock:/var/run/docker.sock
+      - demo-kuma-runtime:/app/runtime
     environment:
       - NODE_ENV=development
 
@@ -33,7 +34,7 @@ services:
       - STACK_HEALTH_PATH=/api/health
 
       # Session Time (Seconds)
-      - SESSION_TIME=60
+      - SESSION_TIME=300
 
       # If the stack has not started in time, it will be considered as failed (Seconds)
       - START_TIMEOUT=10
@@ -46,10 +47,15 @@ services:
       # Install URL for the "Install now" button
       - INSTALL_URL=https://demo.getarcane.app
 
-      # Arcane secrets (required)
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - JWT_SECRET=${JWT_SECRET}
+      # Optional Arcane secrets override.
+      # If omitted, the container will generate them with openssl on first boot
+      # and persist them in /app/runtime.
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-}
 
       # Docker Network Name
       # The demo instance must be in the same network as the demo-kuma
       - DOCKER_NETWORK_NAME=demo-kuma_default
+
+volumes:
+  demo-kuma-runtime:
