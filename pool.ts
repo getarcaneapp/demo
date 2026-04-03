@@ -3,6 +3,7 @@ import { sleep } from "./util";
 import crypto from "crypto";
 import {
     sessionTime,
+    sessionIdleTimeout,
     stackPrefix,
     startTimeout,
     servicePort,
@@ -21,6 +22,7 @@ interface SessionInfo {
     endSessionTime: number;
     credentials: SessionCredentials;
     timeout: NodeJS.Timeout;
+    idleTimeout: NodeJS.Timeout;
 }
 
 export class Pool {
@@ -40,6 +42,7 @@ export class Pool {
         }
 
         let timeout : NodeJS.Timeout;
+        let idleTimeout : NodeJS.Timeout;
         let credentials = this.generateCredentials(sessionID);
 
         console.log(`[${sessionID}] Start a session`);
@@ -87,11 +90,14 @@ export class Pool {
                 await this.stopInstance(sessionID);
             }, (sessionTime) * 1000);
 
+            idleTimeout = this.createIdleTimeout(sessionID);
+
             this.sessionList[sessionID] = {
                 baseURL,
                 endSessionTime,
                 credentials,
                 timeout,
+                idleTimeout,
             };
             console.log(`[${sessionID}] Session started`);
 
@@ -113,6 +119,10 @@ export class Pool {
             clearTimeout(session.timeout);
         }
 
+        if (session?.idleTimeout) {
+            clearTimeout(session.idleTimeout);
+        }
+
         await this.stopComposeProject(sessionID);
         delete this.sessionList[sessionID];
     }
@@ -123,6 +133,18 @@ export class Pool {
 
     getSession(sessionID : string) {
         return this.sessionList[sessionID];
+    }
+
+    touchSession(sessionID : string) {
+        let session = this.sessionList[sessionID];
+
+        if (!session) {
+            return false;
+        }
+
+        clearTimeout(session.idleTimeout);
+        session.idleTimeout = this.createIdleTimeout(sessionID);
+        return true;
     }
 
     async getServiceIP(sessionID : string) : Promise<string> {
@@ -258,5 +280,12 @@ export class Pool {
                 stderr: "",
             };
         }
+    }
+
+    private createIdleTimeout(sessionID : string) {
+        return setTimeout(async () => {
+            console.log(`[${sessionID}] Idle timeout reached`);
+            await this.stopInstance(sessionID);
+        }, sessionIdleTimeout * 1000);
     }
 }

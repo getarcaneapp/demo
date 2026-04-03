@@ -52,6 +52,8 @@
     const autoStart = <%- JSON.stringify(autoStart) %>;
     let entryPath = <%- JSON.stringify(entryPath) %>;
     let timer;
+    let heartbeatTimer;
+    let unloadHandlerRegistered = false;
 
     const { createApp } = Vue;
     createApp({
@@ -87,6 +89,7 @@
                             localStorage.setItem("endSessionTime", obj.endSessionTime);
                         }
                         this.startTimer();
+                        this.startHeartbeat();
                     } else {
                         this.clearStoredCredentials();
                         this.entryAction();
@@ -124,6 +127,7 @@
                         localStorage.setItem("endSessionTime", obj.endSessionTime);
                         this.storeCredentials(obj.credentials);
                         this.startTimer();
+                        this.startHeartbeat();
 
                     } else {
                         this.loading = false;
@@ -166,10 +170,60 @@
                         this.showEnd = true;
                         this.showFixed = false;
                         this.credentials = null;
+                        this.stopHeartbeat();
                         this.clearStoredCredentials();
                         localStorage.removeItem("endSessionTime");
                     }
                 }, 1000);
+            },
+
+            startHeartbeat() {
+                if (heartbeatTimer) {
+                    return;
+                }
+
+                heartbeatTimer = setInterval(() => {
+                    fetch("/demo-kuma/heartbeat", {
+                        method: "POST",
+                        keepalive: true,
+                    }).catch(() => {
+                    });
+                }, 15000);
+
+                if (!unloadHandlerRegistered) {
+                    let endSession = () => {
+                        this.stopHeartbeat();
+                        this.signalEndSession();
+                    };
+
+                    window.addEventListener("pagehide", endSession);
+                    window.addEventListener("beforeunload", endSession);
+                    unloadHandlerRegistered = true;
+                }
+            },
+
+            stopHeartbeat() {
+                if (!heartbeatTimer) {
+                    return;
+                }
+
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            },
+
+            signalEndSession() {
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon("/demo-kuma/end-session", new Blob([], {
+                        type: "application/json",
+                    }));
+                    return;
+                }
+
+                fetch("/demo-kuma/end-session", {
+                    method: "POST",
+                    keepalive: true,
+                }).catch(() => {
+                });
             },
 
             storeCredentials(credentials) {

@@ -38,7 +38,8 @@ services:
       - APP_URL=${APP_URL:-http://localhost:3003}
 
       # Session Time (Seconds)
-      - SESSION_TIME=300
+      - SESSION_TIME=600
+      - SESSION_IDLE_TIMEOUT=30
 
       # If the stack has not started in time, it will be considered as failed (Seconds)
       - START_TIMEOUT=10

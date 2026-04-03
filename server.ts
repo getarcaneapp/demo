@@ -136,6 +136,7 @@ async function requestHandler(req : http.IncomingMessage, res : http.ServerRespo
 
         } else if (req.url === "/demo-kuma/validate-session") {
             let sessionID = getSessionID(req);
+            pool.touchSession(sessionID);
 
             res.writeHead(200, {
                 "Content-Type": "application/json",
@@ -147,6 +148,25 @@ async function requestHandler(req : http.IncomingMessage, res : http.ServerRespo
                 endSessionTime: session?.endSessionTime,
                 credentials: session?.credentials,
             }));
+
+        } else if (req.url === "/demo-kuma/heartbeat" && req.method === "POST") {
+            let sessionID = getSessionID(req);
+            let ok = pool.touchSession(sessionID);
+
+            res.writeHead(ok ? 204 : 404);
+            res.end();
+
+        } else if (req.url === "/demo-kuma/end-session" && req.method === "POST") {
+            let sessionID = getSessionID(req);
+
+            if (pool.getSession(sessionID)) {
+                await pool.stopInstance(sessionID);
+            }
+
+            res.writeHead(204, {
+                "Set-Cookie": "session-id=; Max-Age=0; Path=/;",
+            });
+            res.end();
 
         } else {
             try {
@@ -168,6 +188,7 @@ async function proxyWeb(req : http.IncomingMessage, res : http.ServerResponse, r
     let target = getProxyTarget(req);
 
     if (target) {
+        pool.touchSession(getSessionID(req));
         proxy.web(req, res, {
             target,
         }, async (err) => {
@@ -199,6 +220,8 @@ function proxyWebSocket(req : http.IncomingMessage, socket : Duplex, head : Buff
     }, () => {
         socket.destroy();
     });
+
+    pool.touchSession(getSessionID(req));
 }
 
 function getProxyTarget(req : http.IncomingMessage) {
