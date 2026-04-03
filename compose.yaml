@@ -34,7 +34,7 @@ services:
 
       # Public URL users visit for this demo site.
       # Arcane uses this for redirects and websocket/client URL generation.
-      - APP_URL=${APP_URL}
+      - APP_URL=https://demo.getarcane.app
 
       # Session Time (Seconds)
       - SESSION_TIME=600
