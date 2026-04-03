@@ -32,6 +32,10 @@ services:
       # The health path used to check readiness
       - STACK_HEALTH_PATH=/api/health
 
+      # Public URL users visit for this demo site.
+      # Arcane uses this for redirects and websocket/client URL generation.
+      - APP_URL=${APP_URL:-http://localhost:3003}
+
       # Session Time (Seconds)
       - SESSION_TIME=300
 
@@ -43,7 +47,7 @@ services:
       # true / false
       - SHOW_ENTRY=false
 
-      # Install URL for the "Install now" button
+      # Public landing/install URL for the product itself
       - INSTALL_URL=https://demo.getarcane.app
 
       # Optional Arcane secrets override.

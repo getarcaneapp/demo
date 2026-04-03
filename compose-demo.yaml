@@ -3,6 +3,9 @@ services:
     image: docker:29-dind
     privileged: true
     restart: no
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 512
     environment:
       - DOCKER_TLS_CERTDIR=
     command:
@@ -23,6 +26,9 @@ services:
     image: tecnativa/docker-socket-proxy:latest
     privileged: true
     restart: no
+    cpus: 0.25
+    mem_limit: 128m
+    pids_limit: 128
     depends_on:
       dind:
         condition: service_healthy
@@ -58,12 +64,16 @@ services:
     image: ghcr.io/getarcaneapp/arcane:latest
     restart: no
     pull_policy: missing
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 512
 
     volumes:
       - arcane-data:/app/data
       - arcane-projects:/app/data/projects
 
     environment:
+      - APP_URL=${APP_URL:-http://localhost:3003}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - DOCKER_HOST=tcp://docker-socket-proxy:2375

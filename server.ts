@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Pool } from "./pool";
 import * as http from "http";
+import { Duplex } from "stream";
 import httpProxy from "http-proxy";
 import ejs from "ejs";
 import fs from "fs/promises";
@@ -17,7 +18,11 @@ process.addListener("unhandledRejection", unexpectedErrorHandler);
 process.addListener("uncaughtException", unexpectedErrorHandler);
 
 const pool = new Pool();
-const proxy = httpProxy.createProxyServer();
+const proxy = httpProxy.createProxyServer({
+    ws: true,
+    changeOrigin: true,
+    xfwd: true,
+});
 
 await pool.clearInstance();
 
@@ -29,6 +34,10 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(500);
         res.end("Internal server error");
     }
+});
+
+server.on("upgrade", (req, socket, head) => {
+    proxyWebSocket(req, socket, head);
 });
 
 console.log(`Listening on port ${serverPort}`);
@@ -156,11 +165,9 @@ async function requestHandler(req : http.IncomingMessage, res : http.ServerRespo
 }
 
 async function proxyWeb(req : http.IncomingMessage, res : http.ServerResponse, retryCount = 0) {
-    // Get the sessionID from cookie
-    let sessionID = getSessionID(req);
-    let target = pool.getServiceURL(sessionID);
+    let target = getProxyTarget(req);
 
-    if (sessionID && target) {
+    if (target) {
         proxy.web(req, res, {
             target,
         }, async (err) => {
@@ -176,6 +183,27 @@ async function proxyWeb(req : http.IncomingMessage, res : http.ServerResponse, r
         res.writeHead(404);
         res.end("Session not found");
     }
+}
+
+function proxyWebSocket(req : http.IncomingMessage, socket : Duplex, head : Buffer) {
+    let target = getProxyTarget(req);
+
+    if (!target) {
+        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        socket.destroy();
+        return;
+    }
+
+    proxy.ws(req, socket, head, {
+        target,
+    }, () => {
+        socket.destroy();
+    });
+}
+
+function getProxyTarget(req : http.IncomingMessage) {
+    let sessionID = getSessionID(req);
+    return pool.getServiceURL(sessionID);
 }
 
 async function shutdownFunction(signal : string | undefined) {

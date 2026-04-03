@@ -38,6 +38,7 @@ https://demo.getarcane.app/start-demo
 ## Arcane demo behavior
 
 - The default session lifetime is 5 minutes (`SESSION_TIME=300`).
+- Set `APP_URL` to the public URL of the demo site in production, for example `https://demo.getarcane.app`.
 - Each session starts three containers inside the demo stack:
   - `dind`: isolated Docker daemon (`docker:29-dind`)
   - `docker-socket-proxy`: restricted proxy in front of that daemon
