@@ -11,15 +11,40 @@ body {
   background-color: #090C10;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #74c2ff 0%, #74c2ff 75%, #86e6a9);
-  border-color: #54DC8C;
-  border-radius: 50rem !important;
-  color: black;
+[v-cloak] {
+  display: none;
 }
-.btn-primary:hover {
-  border-color: #54DC8C;
-  color: black;
+
+a {
+  color: #c4b5fd;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 60%, #8b5cf6 100%);
+  border-color: #8b5cf6;
+  border-radius: 50rem !important;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+  transition: filter 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 60%, #c4b5fd 100%);
+  border-color: #c4b5fd;
+  color: #fff;
+  box-shadow: 0 8px 26px rgba(139, 92, 246, 0.45);
+  transform: translateY(-1px);
+}
+.btn-primary:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 2px;
+}
+
+.btn-big {
+  padding: 0.65rem 1.9rem;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 iframe {
@@ -28,21 +53,278 @@ iframe {
   border: 0;
   margin: 0;
   padding: 0;
+  display: block;
+  transform-origin: center center;
 }
 
 .main {
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background-color: #090C10;
   display: flex;
   justify-content: center;
   align-items: center;
   flex-direction: column;
 }
 
+.entry,
+.busy {
+  max-width: 34rem;
+  padding: 0 1.5rem;
+}
+
 .fixed {
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(9, 12, 16, 0.82);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 12px;
+  padding: 8px;
   position: fixed;
   bottom: 15px;
   right: 15px;
+  z-index: 20;
+  text-align: left;
 }
 
-/*# sourceMappingURL=main.css.map */
+.countdown {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding-bottom: 6px;
+  color: #C9D1D9;
+}
+
+.creds {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cred {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  color: #F0F6FC;
+  font: inherit;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.cred:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+.cred:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 1px;
+}
+.cred.is-copied {
+  background: rgba(139, 92, 246, 0.28);
+  border-color: #8b5cf6;
+}
+
+.cred-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8B949E;
+}
+
+.cred-value {
+  flex: 1 1 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #c4b5fd;
+  user-select: all;
+}
+
+.end-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(240, 246, 252, 0.18);
+  border-radius: 8px;
+  background: transparent;
+  color: #8B949E;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.end-btn:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+.end-btn:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 1px;
+}
+.end-btn.is-confirm {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+}
+.end-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cred-icon {
+  flex: 0 0 auto;
+  width: 1em;
+  color: #8B949E;
+}
+.cred.is-copied .cred-icon {
+  color: #c4b5fd;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.loading-text {
+  color: #8B949E;
+  letter-spacing: 0.02em;
+}
+
+.arcane-loader {
+  width: 140px;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.35));
+}
+.arcane-loader .pc {
+  fill: #8b5cf6;
+  stroke: #8b5cf6;
+  stroke-width: 2;
+  stroke-dasharray: 1;
+  animation: arcaneTrace 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 55ms);
+}
+
+@keyframes arcaneTrace {
+  0% {
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    stroke-dashoffset: 1;
+  }
+  30% {
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  45% {
+    fill-opacity: 1;
+    stroke-opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  60% {
+    fill-opacity: 1;
+    stroke-opacity: 0;
+    stroke-dashoffset: 0;
+  }
+  85% {
+    fill-opacity: 1;
+    stroke-opacity: 0;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    fill-opacity: 0;
+    stroke-opacity: 0;
+    stroke-dashoffset: 1;
+  }
+}
+
+.main.is-zooming {
+  pointer-events: none;
+  animation: backdropClear 750ms ease forwards;
+}
+.main.is-zooming .pc {
+  animation: none;
+  fill-opacity: 1;
+  stroke-opacity: 0;
+}
+.main.is-zooming .arcane-loader {
+  animation: markZoom 750ms cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+.main.is-zooming .loading-text {
+  animation: textFade 220ms ease forwards;
+}
+
+.demo-frame.is-entering {
+  animation: frameIn 750ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
+}
+
+@keyframes backdropClear {
+  0% {
+    background-color: #090C10;
+  }
+  55% {
+    background-color: rgba(9, 12, 16, 0.55);
+  }
+  100% {
+    background-color: rgba(9, 12, 16, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes markZoom {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(0.86);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(16);
+    opacity: 0;
+  }
+}
+
+@keyframes textFade {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes frameIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arcane-loader .pc {
+    animation: none;
+  }
+  .main.is-zooming {
+    animation: none;
+    opacity: 0;
+  }
+  .main.is-zooming .arcane-loader,
+  .main.is-zooming .loading-text {
+    animation: none;
+  }
+  .demo-frame.is-entering {
+    animation: none;
+  }
+}

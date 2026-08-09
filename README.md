@@ -12,8 +12,9 @@ https://demo.getarcane.app/start-demo
 
 - Quickly create a demo for your project.
 - Spin up a temporary Arcane demo when requested, then shut it down automatically.
-- A countdown timer at the bottom right corner.
-- 10 minute demo sessions by default.
+- A countdown timer and copyable login credentials at the bottom right corner.
+- 10 minute demo sessions by default, reaped early once idle.
+- Concurrency cap and per-IP rate limit so one visitor can't exhaust the host.
 - Portless demo instances design in v2, you just need one port for Demo Kuma.
 
 ## How to use
@@ -32,6 +33,25 @@ https://demo.getarcane.app/start-demo
     On first boot, Demo Kuma will generate `ENCRYPTION_KEY` and `JWT_SECRET` with `openssl rand -base64 32` automatically and persist them in `/app/runtime`.
 1. If you are running behind a public domain, set `APP_URL` to the public origin before starting the stack.
 1. Go to http://localhost:3003/start-demo to test the demo.
+
+## Configuration
+
+All settings are environment variables in `compose.yaml`, where each one is
+commented. Worth knowing:
+
+- `SESSION_TIME` (600) — hard cap on a session, in seconds.
+- `SESSION_IDLE_TIMEOUT` (120) — idle seconds before a session is reaped. Keep it
+  above 60s: browsers throttle background-tab timers to about one tick a minute.
+- `MAX_SESSIONS` (10) — concurrent stacks. Over the cap, visitors get a "demo is
+  busy" page instead of a new stack.
+- `START_RATE_LIMIT_MAX` / `START_RATE_LIMIT_WINDOW` (2 / 600) — per-IP start
+  budget. Override these locally, where every request shares one address.
+- `TRUST_PROXY` (false) — take the client IP from `X-Forwarded-For`. Enable only
+  when this runs behind a reverse proxy you control.
+- `APP_URL` — the public origin. Required.
+
+`GET /healthz` reports session count and Docker reachability, and backs the
+container healthcheck.
 
 # More screenshots
 

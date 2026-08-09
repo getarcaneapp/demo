@@ -21,6 +21,10 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "2"
 
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
@@ -59,6 +63,10 @@ services:
       - VOLUMES=1
     volumes:
       - dind-socket:/var/run
+    logging:
+      options:
+        max-size: 10m
+        max-file: "2"
 
   main:
     image: ghcr.io/getarcaneapp/arcane:latest

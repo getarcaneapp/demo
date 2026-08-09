@@ -7,11 +7,24 @@ services:
     restart: unless-stopped
     ports:
       - 3003:80
+    cpus: 1
+    mem_limit: 512m
+    pids_limit: 512
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./compose-demo.yaml:/app/compose-demo.yaml
       - ./scripts:/app/scripts:ro
       - demo-kuma-runtime:/app/runtime
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:80/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
     environment:
       # Demo Website Name
       - WEBSITE_NAME=Arcane Demo
@@ -34,14 +47,36 @@ services:
 
       # Public URL users visit for this demo site.
       # Arcane uses this for redirects and websocket/client URL generation.
+      # Also drives the `Secure` flag on the session cookie when it is https.
       - APP_URL=https://demo.getarcane.app
 
-      # Session Time (Seconds)
+      # Session Time (Seconds) - hard cap on a session
       - SESSION_TIME=600
-      - SESSION_IDLE_TIMEOUT=30
+
+      # Seconds without a heartbeat / request before a session is reaped.
+      # Keep well above 60s: browsers throttle background-tab timers to ~1/min.
+      - SESSION_IDLE_TIMEOUT=120
 
       # If the stack has not started in time, it will be considered as failed (Seconds)
       - START_TIMEOUT=60
+
+      # Maximum number of concurrent demo stacks (including ones still starting).
+      # Each stack is roughly 4 CPUs / 4 GB at its limits - size this to the host.
+      - MAX_SESSIONS=10
+
+      # Per-IP start rate limit: max starts per window (seconds).
+      # Override in .env when testing locally, where every request shares the
+      # Docker bridge address and therefore one bucket.
+      - START_RATE_LIMIT_MAX=${START_RATE_LIMIT_MAX:-2}
+      - START_RATE_LIMIT_WINDOW=${START_RATE_LIMIT_WINDOW:-600}
+
+      # Trust X-Forwarded-For for the rate-limit client IP.
+      # Only enable when this service is reachable exclusively through a reverse
+      # proxy / tunnel you control, otherwise clients can spoof the header.
+      - TRUST_PROXY=true
+
+      # How often (seconds) to probe running instances and reap dead ones.
+      - HEALTH_SWEEP_INTERVAL=60
 
       # Show Entry
       # If true, the entry will be shown in the demo page and the user has to click "Start Demo" to start the demo

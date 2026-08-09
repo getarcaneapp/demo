@@ -1,24 +1,26 @@
 {
-    "name": "demo-kuma",
+    "name": "arcane-demo",
     "version": "2.0.0",
     "main": "server.js",
     "type": "module",
     "scripts": {
-        "dev": "docker-compose -f compose-dev.yaml up",
+        "dev": "docker compose -f compose-dev.yaml up",
         "start": "tsx server.ts",
-        "build:docker-nightly": "docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t louislam/demo-kuma:nightly --target release -f Dockerfile . --push",
-        "build:docker": "docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t louislam/demo-kuma:2 --target release -f Dockerfile . --push"
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint --ext .ts,.cjs,.mjs .",
+        "build:docker-nightly": "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/demo:nightly --target release -f Dockerfile . --push",
+        "build:docker": "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/demo:2 --target release -f Dockerfile . --push"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/louislam/demo-kuma.git"
+        "url": "git+https://github.com/getarcaneapp/demo.git"
     },
     "author": "Louis Lam",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/louislam/demo-kuma/issues"
+        "url": "https://github.com/getarcaneapp/demo/issues"
     },
-    "homepage": "https://github.com/louislam/demo-kuma#readme",
+    "homepage": "https://github.com/getarcaneapp/demo#readme",
     "dependencies": {
         "dotenv": "~10.0.0",
         "ejs": "~3.1.9",

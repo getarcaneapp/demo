@@ -2,7 +2,8 @@ name: demo-kuma
 
 services:
   demo-kuma:
-    image: louislam/demo-kuma:nightly
+    build: .
+    image: demo-kuma:arcane-local
     restart: unless-stopped
     ports:
       - 3003:80
@@ -39,10 +40,15 @@ services:
 
       # Session Time (Seconds)
       - SESSION_TIME=600
-      - SESSION_IDLE_TIMEOUT=30
+      - SESSION_IDLE_TIMEOUT=120
 
       # If the stack has not started in time, it will be considered as failed (Seconds)
-      - START_TIMEOUT=10
+      - START_TIMEOUT=60
+
+      # Concurrency cap and per-IP start rate limit
+      - MAX_SESSIONS=3
+      - START_RATE_LIMIT_MAX=20
+      - START_RATE_LIMIT_WINDOW=600
 
       # Show Entry
       # If true, the entry will be shown in the demo page and the user has to click "Start Demo" to start the demo
