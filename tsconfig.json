@@ -6,7 +6,5 @@
         "moduleResolution": "bundler",
         "skipLibCheck": true
     },
-    "include": [
-        "*.ts"
-    ]
+    "include": ["*.ts"]
 }

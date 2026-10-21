@@ -7,7 +7,6 @@ https://demo.getarcane.app/start-demo
 
 ![image](https://github.com/louislam/demo-kuma/assets/1336778/f15b5e46-5c98-419e-98e4-a2d52b91780c)
 
-
 ## Features
 
 - Quickly create a demo for your project.
@@ -21,11 +20,13 @@ https://demo.getarcane.app/start-demo
 
 1. Create a stack directory `demo-kuma`.
 1. Download `compose.yaml` and `compose-demo.yaml` into the directory.
-  - `compose.yaml` = Demo Kuma stack
-     - You should go through all variables in the `environment:` section.
-  - `compose-demo.yaml` = The stack that you want to provide a demo (Arcane)
-     - By default, the main service should be `main`.
-     - If you run the stack with a different project name, set `DOCKER_NETWORK_NAME` to match that network (e.g., `{project}_default`).
+
+- `compose.yaml` = Demo Kuma stack
+    - You should go through all variables in the `environment:` section.
+- `compose-demo.yaml` = The stack that you want to provide a demo (Arcane)
+    - By default, the main service should be `main`.
+    - If you run the stack with a different project name, set `DOCKER_NETWORK_NAME` to match that network (e.g., `{project}_default`).
+
 1. Start the stack:
     ```bash
     docker compose up -d --build
@@ -48,6 +49,8 @@ commented. Worth knowing:
   budget. Override these locally, where every request shares one address.
 - `TRUST_PROXY` (false) — take the client IP from `X-Forwarded-For`. Enable only
   when this runs behind a reverse proxy you control.
+- `IMAGE_REFRESH_INTERVAL` (900) — seconds between background pulls of the
+  `compose-demo.yaml` images, so new sessions run the latest Arcane.
 - `APP_URL` — the public origin. Required.
 
 `GET /healthz` reports session count and Docker reachability, and backs the

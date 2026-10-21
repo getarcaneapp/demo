@@ -3,17 +3,29 @@ $arcane-500: #8b5cf6;
 $arcane-600: #7c3aed;
 $arcane-700: #6d28d9;
 $arcane-300: #c4b5fd;
-$surface: #090C10;
+$surface: #090c10;
 
-html, body {
+html,
+body {
     margin: 0;
     overflow: hidden;
 }
 
 body {
-    font-family: BlinkMacSystemFont, segoe ui, Roboto, helvetica neue, Arial, noto sans, sans-serif, apple color emoji, segoe ui emoji, segoe ui symbol, noto color emoji;
+    font-family:
+        BlinkMacSystemFont,
+        segoe ui,
+        Roboto,
+        helvetica neue,
+        Arial,
+        noto sans,
+        sans-serif,
+        apple color emoji,
+        segoe ui emoji,
+        segoe ui symbol,
+        noto color emoji;
     font-size: 15px;
-    color: #F0F6FC;
+    color: #f0f6fc;
     text-align: center;
     background-color: $surface;
 }
@@ -32,7 +44,10 @@ a {
     border-radius: 50rem !important;
     color: #fff;
     box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
-    transition: filter 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    transition:
+        filter 150ms ease,
+        box-shadow 150ms ease,
+        transform 150ms ease;
 
     &:hover,
     &:focus,
@@ -101,7 +116,7 @@ iframe {
     font-variant-numeric: tabular-nums;
     text-align: center;
     padding-bottom: 6px;
-    color: #C9D1D9;
+    color: #c9d1d9;
 }
 
 .creds {
@@ -119,10 +134,12 @@ iframe {
     border: 1px solid transparent;
     border-radius: 8px;
     background: rgba(139, 92, 246, 0.08);
-    color: #F0F6FC;
+    color: #f0f6fc;
     font: inherit;
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease;
 
     &:hover {
         background: rgba(139, 92, 246, 0.2);
@@ -145,7 +162,7 @@ iframe {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #8B949E;
+    color: #8b949e;
 }
 
 .cred-value {
@@ -163,11 +180,14 @@ iframe {
     border: 1px solid rgba(240, 246, 252, 0.18);
     border-radius: 8px;
     background: transparent;
-    color: #8B949E;
+    color: #8b949e;
     font: inherit;
     font-size: 13px;
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease,
+        color 120ms ease;
 
     &:hover:not(:disabled) {
         border-color: rgba(248, 113, 113, 0.5);
@@ -194,7 +214,7 @@ iframe {
 .cred-icon {
     flex: 0 0 auto;
     width: 1em;
-    color: #8B949E;
+    color: #8b949e;
 
     .cred.is-copied & {
         color: $arcane-300;
@@ -209,7 +229,7 @@ iframe {
 }
 
 .loading-text {
-    color: #8B949E;
+    color: #8b949e;
     letter-spacing: 0.02em;
 }
 

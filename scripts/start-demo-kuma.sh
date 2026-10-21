@@ -42,4 +42,5 @@ export ENCRYPTION_KEY
 export JWT_SECRET
 export APP_URL
 
-exec tsx ./server.ts
+# Bundled by `vp pack` in the image build.
+exec node ./dist/server.mjs

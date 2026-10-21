@@ -93,7 +93,8 @@ services:
       docker-socket-proxy:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3552/api/health >/dev/null || exit 1"]
+      # Exec form: the Arcane image has no /bin/sh, so CMD-SHELL always fails.
+      test: ["CMD", "/app/arcane", "health"]
       interval: 10s
       timeout: 5s
       retries: 12

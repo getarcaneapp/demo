@@ -1,44 +1,47 @@
 {
     "name": "arcane-demo",
     "version": "2.0.0",
-    "main": "server.js",
-    "type": "module",
-    "scripts": {
-        "dev": "docker compose -f compose-dev.yaml up",
-        "start": "tsx server.ts",
-        "typecheck": "tsc --noEmit",
-        "lint": "eslint --ext .ts,.cjs,.mjs .",
-        "build:docker-nightly": "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/demo:nightly --target release -f Dockerfile . --push",
-        "build:docker": "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/demo:2 --target release -f Dockerfile . --push"
+    "homepage": "https://github.com/getarcaneapp/demo#readme",
+    "bugs": {
+        "url": "https://github.com/getarcaneapp/demo/issues"
     },
+    "license": "MIT",
+    "author": "Louis Lam",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/getarcaneapp/demo.git"
     },
-    "author": "Louis Lam",
-    "license": "MIT",
-    "bugs": {
-        "url": "https://github.com/getarcaneapp/demo/issues"
+    "type": "module",
+    "main": "dist/server.mjs",
+    "scripts": {
+        "dev": "docker compose -f compose-dev.yaml up",
+        "build": "vp pack",
+        "start": "node dist/server.mjs",
+        "check": "vp check",
+        "lint": "vp lint",
+        "fmt": "vp fmt",
+        "build:docker-nightly": "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/demo:nightly --target release -f Dockerfile . --push",
+        "build:docker": "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/demo:2 --target release -f Dockerfile . --push"
     },
-    "homepage": "https://github.com/getarcaneapp/demo#readme",
     "dependencies": {
         "dotenv": "~10.0.0",
         "ejs": "~3.1.9",
         "http-graceful-shutdown": "~3.1.13",
         "http-proxy": "~1.18.1",
-        "promisify-child-process": "~4.1.2",
-        "tsx": "~4.7.0"
+        "promisify-child-process": "~4.1.2"
     },
     "devDependencies": {
         "@types/ejs": "^3.1.5",
         "@types/http-proxy": "^1.17.14",
-        "@types/node": "~20.10.6",
-        "@typescript-eslint/eslint-plugin": "~6.8.0",
-        "@typescript-eslint/parser": "~6.8.0",
+        "@types/node": "~24.19.2",
         "concurrently": "^8.2.2",
         "cross-env": "~7.0.3",
-        "eslint": "~8.50.0",
-        "eslint-plugin-jsdoc": "~46.8.2",
-        "typescript": "~5.2.2"
-    }
+        "tsx": "~4.23.15",
+        "typescript": "~7.0.2",
+        "vite-plus": "catalog:"
+    },
+    "engines": {
+        "node": "^24.11.0"
+    },
+    "packageManager": "pnpm@12.14.0"
 }

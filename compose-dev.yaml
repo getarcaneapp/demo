@@ -2,14 +2,20 @@ name: demo-kuma
 
 services:
   demo-kuma:
-    build: .
-    image: demo-kuma:arcane-local
+    build:
+      context: .
+      target: dev
+    image: demo-kuma:arcane-dev
     restart: unless-stopped
     ports:
       - 3003:80
     command: tsx watch --inspect ./server.ts
     volumes:
       - ./:/app
+      # Keep the image's node_modules (and tsx) instead of the host's.
+      # After dependency changes, rebuild and run `up --build -V` so this
+      # anonymous volume is recreated from the new image.
+      - /app/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
       - demo-kuma-runtime:/app/runtime
     environment:
@@ -49,6 +55,9 @@ services:
       - MAX_SESSIONS=3
       - START_RATE_LIMIT_MAX=20
       - START_RATE_LIMIT_WINDOW=600
+
+      # How often (seconds) to pull fresh images for compose-demo.yaml
+      - IMAGE_REFRESH_INTERVAL=900
 
       # Show Entry
       # If true, the entry will be shown in the demo page and the user has to click "Start Demo" to start the demo

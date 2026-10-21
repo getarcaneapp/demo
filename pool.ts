@@ -14,6 +14,7 @@ import {
     maxSessions,
     healthSweepInterval,
     healthSweepFailureLimit,
+    imageRefreshInterval,
 } from "./config";
 
 /** Cap on captured child-process output, so a chatty compose run cannot eat the heap. */
@@ -78,11 +79,16 @@ export class Pool {
     private booted = false;
 
     /** Serializes admission checks so concurrent requests cannot both pass the cap. */
-    private admissionChain : Promise<unknown> = Promise.resolve();
+    private admissionChain: Promise<unknown> = Promise.resolve();
 
-    private sweepTimer : NodeJS.Timeout | undefined;
+    private sweepTimer: NodeJS.Timeout | undefined;
 
-    private dockerHealth : { ok : boolean, error : string | null, checkedAt : number } = {
+    private refreshTimer: NodeJS.Timeout | undefined;
+
+    /** Guards against overlapping pulls when one outlasts the refresh interval. */
+    private refreshing = false;
+
+    private dockerHealth: { ok: boolean; error: string | null; checkedAt: number } = {
         ok: false,
         error: "not checked yet",
         checkedAt: 0,
@@ -130,10 +136,7 @@ export class Pool {
         console.log(`[${session.projectName}] Starting session (${this.sessionCount()}/${maxSessions} slots used)`);
 
         try {
-            let result = await this.runDockerCompose(session.projectName, [
-                "up",
-                "-d",
-            ]);
+            let result = await this.runDockerCompose(session.projectName, ["up", "-d"]);
 
             if (result.stderr) {
                 console.log(`[${session.projectName}] compose up: ${truncate(result.stderr.toString().trim(), 2000)}`);
@@ -147,7 +150,9 @@ export class Pool {
             session.timeout = setTimeout(() => {
                 console.log(`[${session.projectName}] Time's up`);
                 this.stopInstance(session.sessionID).catch((error) => {
-                    console.error(`[${session.projectName}] Failed to stop on session timeout: ${describeError(error)}`);
+                    console.error(
+                        `[${session.projectName}] Failed to stop on session timeout: ${describeError(error)}`,
+                    );
                 });
             }, sessionTime * 1000);
             session.idleTimeout = this.createIdleTimeout(session.sessionID);
@@ -161,7 +166,9 @@ export class Pool {
                 credentials: session.credentials,
             };
         } catch (error) {
-            console.error(`[${session.projectName}] Session failed to start after ${Date.now() - startedAt}ms: ${describeError(error)}`);
+            console.error(
+                `[${session.projectName}] Session failed to start after ${Date.now() - startedAt}ms: ${describeError(error)}`,
+            );
             // Tear the half-started stack down now instead of leaking it until the
             // next restart sweep.
             await this.stopInstance(session.sessionID);
@@ -169,7 +176,7 @@ export class Pool {
         }
     }
 
-    async stopInstance(sessionID : string) {
+    async stopInstance(sessionID: string) {
         let session = this.sessionList[sessionID];
 
         if (!session || session.stopping) {
@@ -185,10 +192,12 @@ export class Pool {
 
         let stoppedAt = Date.now();
         await this.stopComposeProject(session.projectName);
-        console.log(`[${session.projectName}] Session stopped in ${Date.now() - stoppedAt}ms (lifetime ${Date.now() - session.startedAt}ms)`);
+        console.log(
+            `[${session.projectName}] Session stopped in ${Date.now() - stoppedAt}ms (lifetime ${Date.now() - session.startedAt}ms)`,
+        );
     }
 
-    getServiceURL(sessionID : string) : string | undefined {
+    getServiceURL(sessionID: string): string | undefined {
         let session = this.sessionList[sessionID];
 
         if (!session || !session.ready) {
@@ -198,12 +207,12 @@ export class Pool {
         return session.baseURL;
     }
 
-    getSession(sessionID : string) {
+    getSession(sessionID: string) {
         let session = this.sessionList[sessionID];
         return session?.ready ? session : undefined;
     }
 
-    touchSession(sessionID : string) {
+    touchSession(sessionID: string) {
         let session = this.getSession(sessionID);
 
         if (!session) {
@@ -232,7 +241,7 @@ export class Pool {
 
         this.sessionList = {};
 
-        let projectNames = new Set(known.map(session => session.projectName));
+        let projectNames = new Set(known.map((session) => session.projectName));
 
         for (let name of await this.listStackProjects()) {
             projectNames.add(name);
@@ -245,7 +254,7 @@ export class Pool {
         console.log(`Clearing ${projectNames.size} stack(s)`);
 
         // In parallel: a sequential loop can blow the 30s graceful-shutdown budget.
-        await Promise.allSettled([ ...projectNames ].map(name => this.stopComposeProject(name)));
+        await Promise.allSettled([...projectNames].map((name) => this.stopComposeProject(name)));
     }
 
     /**
@@ -253,6 +262,7 @@ export class Pool {
      */
     async shutdownAll() {
         this.stopHealthSweep();
+        this.stopImageRefresh();
 
         try {
             await this.clearInstance();
@@ -280,29 +290,102 @@ export class Pool {
         }
     }
 
+    startImageRefresh() {
+        if (this.refreshTimer) {
+            return;
+        }
+
+        this.refreshTimer = setInterval(() => {
+            // Never rejects: errors are logged inside.
+            void this.refreshImages();
+        }, imageRefreshInterval * 1000);
+    }
+
+    stopImageRefresh() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = undefined;
+        }
+    }
+
+    /**
+     * Pull fresh images for the demo stack and drop the dangling layers they
+     * replace. compose-demo.yaml keeps `pull_policy: missing`, so session starts
+     * never wait on the registry; this keeps the cached `:latest` tags current
+     * instead. Best effort: never throws.
+     */
+    async refreshImages() {
+        if (this.refreshing) {
+            return;
+        }
+
+        this.refreshing = true;
+        let startedAt = Date.now();
+
+        try {
+            // `compose pull` creates no containers, networks or volumes, so this
+            // project name never shows up in listStackProjects().
+            let result = await this.runDockerCompose(`${stackPrefix}-images`, [
+                "pull",
+                "--quiet",
+                "--ignore-pull-failures",
+            ]);
+
+            // compose prints "Pulling"/"Pulled" progress to stderr even with
+            // --quiet; only surface the rest (e.g. a failure that
+            // --ignore-pull-failures turned into a zero exit).
+            let problems = (result.stderr ?? "")
+                .toString()
+                .split("\n")
+                .map((line) => line.trim())
+                .filter((line) => line && !/\b(Pulling|Pulled)$/.test(line));
+
+            if (problems.length > 0) {
+                console.warn(`Image pull: ${truncate(problems.join("; "), 2000)}`);
+            }
+
+            // Dangling only: images still used by a running session are kept.
+            await childProcessAsync.spawn("docker", ["image", "prune", "--force"], {
+                encoding: "utf-8",
+                maxBuffer,
+                timeout: 60000,
+            });
+
+            console.log(`Images refreshed in ${Date.now() - startedAt}ms`);
+        } catch (error) {
+            console.error(`Image refresh failed after ${Date.now() - startedAt}ms: ${describeError(error)}`);
+        } finally {
+            this.refreshing = false;
+        }
+    }
+
     /**
      * Per-session stacks run with `restart: no`, so a crashed Arcane container
      * leaves a live session pointing at a dead target. Probe and reap them.
      */
     async sweepDeadInstances() {
-        let sessions = Object.values(this.sessionList).filter(session => session.ready && !session.stopping);
+        let sessions = Object.values(this.sessionList).filter((session) => session.ready && !session.stopping);
 
-        await Promise.allSettled(sessions.map(async (session) => {
-            let alive = await this.probeInstance(session.baseURL);
+        await Promise.allSettled(
+            sessions.map(async (session) => {
+                let alive = await this.probeInstance(session.baseURL);
 
-            if (alive) {
-                session.healthFailures = 0;
-                return;
-            }
+                if (alive) {
+                    session.healthFailures = 0;
+                    return;
+                }
 
-            session.healthFailures++;
-            console.warn(`[${session.projectName}] Health probe failed (${session.healthFailures}/${healthSweepFailureLimit})`);
+                session.healthFailures++;
+                console.warn(
+                    `[${session.projectName}] Health probe failed (${session.healthFailures}/${healthSweepFailureLimit})`,
+                );
 
-            if (session.healthFailures >= healthSweepFailureLimit) {
-                console.warn(`[${session.projectName}] Instance is dead, ending session`);
-                await this.stopInstance(session.sessionID);
-            }
-        }));
+                if (session.healthFailures >= healthSweepFailureLimit) {
+                    console.warn(`[${session.projectName}] Instance is dead, ending session`);
+                    await this.stopInstance(session.sessionID);
+                }
+            }),
+        );
     }
 
     /**
@@ -315,11 +398,7 @@ export class Pool {
         }
 
         try {
-            await childProcessAsync.spawn("docker", [
-                "version",
-                "--format",
-                "{{.Server.Version}}",
-            ], {
+            await childProcessAsync.spawn("docker", ["version", "--format", "{{.Server.Version}}"], {
                 encoding: "utf-8",
                 maxBuffer,
                 timeout: 5000,
@@ -344,13 +423,10 @@ export class Pool {
      * Resolve the container IP of a session's main service.
      * @param projectName Compose project name
      */
-    async getServiceIP(projectName : string) : Promise<string> {
+    async getServiceIP(projectName: string): Promise<string> {
         let containerID = await this.getServiceContainerID(projectName);
 
-        let response = await childProcessAsync.spawn("docker", [
-            "inspect",
-            containerID,
-        ], {
+        let response = await childProcessAsync.spawn("docker", ["inspect", containerID], {
             encoding: "utf-8",
             maxBuffer,
             timeout: 15000,
@@ -410,11 +486,13 @@ export class Pool {
      * `<project>-<service>-1` by convention.
      * @param projectName Compose project name
      */
-    private async getServiceContainerID(projectName : string) : Promise<string> {
+    private async getServiceContainerID(projectName: string): Promise<string> {
         let response = await this.runDockerCompose(projectName, [
             "ps",
-            "--format", "json",
-            "--status", "running",
+            "--format",
+            "json",
+            "--status",
+            "running",
             serviceName,
         ]);
 
@@ -423,7 +501,7 @@ export class Pool {
         }
 
         let entries = parseComposePs(response.stdout);
-        let entry = entries.find(item => item.Service === serviceName) ?? entries[0];
+        let entry = entries.find((item) => item.Service === serviceName) ?? entries[0];
 
         if (!entry) {
             throw new Error(`Service "${serviceName}" is not running yet`);
@@ -444,16 +522,18 @@ export class Pool {
      * a start open forever.
      * @param projectName Compose project name
      */
-    private async waitForService(projectName : string) : Promise<string> {
+    private async waitForService(projectName: string): Promise<string> {
         let deadline = Date.now() + startTimeout * 1000;
-        let lastError : unknown = "no attempt completed";
+        let lastError: unknown = "no attempt completed";
         let baseURL = "";
 
         while (true) {
             // Check the deadline *before* each attempt so a slow probe cannot make
             // the loop overrun the budget by a full probe timeout.
             if (Date.now() >= deadline) {
-                throw new Error(`Start instance timeout after ${startTimeout}s; last error: ${describeError(lastError)}`);
+                throw new Error(
+                    `Start instance timeout after ${startTimeout}s; last error: ${describeError(lastError)}`,
+                );
             }
 
             try {
@@ -478,7 +558,7 @@ export class Pool {
         }
     }
 
-    private async probeInstance(baseURL : string) {
+    private async probeInstance(baseURL: string) {
         try {
             let response = await fetch(baseURL + healthPath, {
                 signal: AbortSignal.timeout(healthProbeTimeout),
@@ -493,7 +573,7 @@ export class Pool {
     /**
      * Atomically check the concurrency cap and register a placeholder session.
      */
-    private reserveSession() : Promise<SessionInfo> {
+    private reserveSession(): Promise<SessionInfo> {
         let run = () => {
             if (this.sessionCount() >= maxSessions) {
                 throw new SessionLimitError(`All ${maxSessions} demo slots are in use`);
@@ -502,7 +582,7 @@ export class Pool {
             let sessionID = crypto.randomBytes(16).toString("hex");
             let projectName = this.generateProjectName();
 
-            let session : SessionInfo = {
+            let session: SessionInfo = {
                 sessionID,
                 projectName,
                 baseURL: "",
@@ -525,7 +605,7 @@ export class Pool {
     }
 
     private generateProjectName() {
-        let used = new Set(Object.values(this.sessionList).map(session => session.projectName));
+        let used = new Set(Object.values(this.sessionList).map((session) => session.projectName));
 
         while (true) {
             let candidate = `${stackPrefix}-${crypto.randomBytes(4).toString("hex")}`;
@@ -536,7 +616,7 @@ export class Pool {
         }
     }
 
-    private generateCredentials() : SessionCredentials {
+    private generateCredentials(): SessionCredentials {
         return {
             username: `demo-${crypto.randomBytes(3).toString("hex")}`,
             password: generatePassword(),
@@ -551,30 +631,31 @@ export class Pool {
      * @param baseURL Instance base URL
      * @param credentials Credentials to install on the instance
      */
-    private async bootstrapArcaneInstance(projectName : string, baseURL : string, credentials : SessionCredentials) {
+    private async bootstrapArcaneInstance(projectName: string, baseURL: string, credentials: SessionCredentials) {
         let attempts = 3;
-        let lastError : unknown;
+        let lastError: unknown;
 
         for (let attempt = 1; attempt <= attempts; attempt++) {
             try {
-                await childProcessAsync.spawn("node", [
-                    "./scripts/bootstrap-arcane-instance.mjs",
-                    baseURL,
-                    credentials.username,
-                    credentials.password,
-                ], {
-                    encoding: "utf-8",
-                    maxBuffer,
-                    timeout: bootstrapTimeout * 1000,
-                });
+                await childProcessAsync.spawn(
+                    "node",
+                    ["./scripts/bootstrap-arcane-instance.mjs", baseURL, credentials.username, credentials.password],
+                    {
+                        encoding: "utf-8",
+                        maxBuffer,
+                        timeout: bootstrapTimeout * 1000,
+                    },
+                );
                 return;
             } catch (error) {
                 lastError = error;
-                console.warn(`[${projectName}] Bootstrap attempt ${attempt}/${attempts} failed: ${describeError(error)}`);
+                console.warn(
+                    `[${projectName}] Bootstrap attempt ${attempt}/${attempts} failed: ${describeError(error)}`,
+                );
 
                 // Exit code 2 means the instance rejected the request outright
                 // (bad password policy, unknown route). Retrying is pure delay.
-                if ((error as { code? : unknown })?.code === 2) {
+                if ((error as { code?: unknown })?.code === 2) {
                     break;
                 }
 
@@ -587,37 +668,31 @@ export class Pool {
         throw new Error(`Bootstrap failed after ${attempts} attempts: ${describeError(lastError)}`);
     }
 
-    private async runDockerCompose(projectName : string, args : string[]) {
+    private async runDockerCompose(projectName: string, args: string[]) {
         if (!process.env.ENCRYPTION_KEY || !process.env.JWT_SECRET) {
             throw new Error("ENCRYPTION_KEY and JWT_SECRET must be set");
         }
 
-        return childProcessAsync.spawn("docker", [
-            "compose",
-            "--file", "compose-demo.yaml",
-            "-p", projectName,
-            ...args,
-        ], {
-            encoding: "utf-8",
-            maxBuffer,
-            env: {
-                ...process.env,
-                DOCKER_NETWORK_NAME: dockerNetwork,
+        return childProcessAsync.spawn(
+            "docker",
+            ["compose", "--file", "compose-demo.yaml", "-p", projectName, ...args],
+            {
+                encoding: "utf-8",
+                maxBuffer,
+                env: {
+                    ...process.env,
+                    DOCKER_NETWORK_NAME: dockerNetwork,
+                },
             },
-        });
+        );
     }
 
     /**
      * List compose projects belonging to this demo. Throws when Docker is
      * unreachable or returns something unparseable.
      */
-    private async listStackProjects() : Promise<string[]> {
-        let result = await childProcessAsync.spawn("docker", [
-            "compose",
-            "ls",
-            "--all",
-            "--format", "json",
-        ], {
+    private async listStackProjects(): Promise<string[]> {
+        let result = await childProcessAsync.spawn("docker", ["compose", "ls", "--all", "--format", "json"], {
             encoding: "utf-8",
             maxBuffer,
             timeout: 30000,
@@ -627,7 +702,7 @@ export class Pool {
             throw new Error("No output from docker compose ls");
         }
 
-        let list : unknown;
+        let list: unknown;
 
         try {
             list = JSON.parse(result.stdout);
@@ -640,17 +715,13 @@ export class Pool {
         }
 
         return list
-            .map(stack => stack?.Name)
-            .filter((name) : name is string => typeof name === "string" && name.startsWith(stackPrefix + "-"));
+            .map((stack) => stack?.Name)
+            .filter((name): name is string => typeof name === "string" && name.startsWith(stackPrefix + "-"));
     }
 
-    private async stopComposeProject(projectName : string) {
+    private async stopComposeProject(projectName: string) {
         try {
-            return await this.runDockerCompose(projectName, [
-                "down",
-                "--volumes",
-                "--remove-orphans",
-            ]);
+            return await this.runDockerCompose(projectName, ["down", "--volumes", "--remove-orphans"]);
         } catch (error) {
             console.warn(`[${projectName}] Failed to stop compose project: ${describeError(error)}`);
             return {
@@ -660,12 +731,14 @@ export class Pool {
         }
     }
 
-    private createIdleTimeout(sessionID : string) {
+    private createIdleTimeout(sessionID: string) {
         return setTimeout(() => {
             let session = this.sessionList[sessionID];
             console.log(`[${session?.projectName ?? sessionID}] Idle timeout reached`);
             this.stopInstance(sessionID).catch((error) => {
-                console.error(`[${session?.projectName ?? sessionID}] Failed to stop on idle timeout: ${describeError(error)}`);
+                console.error(
+                    `[${session?.projectName ?? sessionID}] Failed to stop on idle timeout: ${describeError(error)}`,
+                );
             });
         }, sessionIdleTimeout * 1000);
     }
@@ -685,8 +758,8 @@ const passwordSymbols = "!@#$%^&*?+=_-";
  * @param charset Characters to pick from
  * @param count How many to pick
  */
-function randomChars(charset : string, count : number) {
-    let out : string[] = [];
+function randomChars(charset: string, count: number) {
+    let out: string[] = [];
 
     for (let i = 0; i < count; i++) {
         out.push(charset[crypto.randomInt(charset.length)]);
@@ -707,7 +780,7 @@ export function generatePassword() {
     // Fisher-Yates, so the class layout is not fixed.
     for (let i = chars.length - 1; i > 0; i--) {
         let j = crypto.randomInt(i + 1);
-        [ chars[i], chars[j] ] = [ chars[j], chars[i] ];
+        [chars[i], chars[j]] = [chars[j], chars[i]];
     }
 
     return chars.join("");
@@ -725,7 +798,7 @@ interface ComposePsEntry {
  * >= 2.21 and newline-delimited objects before that.
  * @param stdout Raw command output
  */
-export function parseComposePs(stdout : string) : ComposePsEntry[] {
+export function parseComposePs(stdout: string): ComposePsEntry[] {
     let trimmed = stdout.trim();
 
     if (!trimmed) {
@@ -739,7 +812,7 @@ export function parseComposePs(stdout : string) : ComposePsEntry[] {
 
     return trimmed
         .split("\n")
-        .map(line => line.trim())
-        .filter(line => line.startsWith("{"))
-        .map(line => JSON.parse(line));
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("{"))
+        .map((line) => JSON.parse(line));
 }

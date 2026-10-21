@@ -1,16 +1,17 @@
 import fs from "fs";
+import { inspect } from "util";
 
-export function getRandomInt(min : number, max : number) {
+export function getRandomInt(min: number, max: number) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-export function sleep(ms : number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+export function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const contentTypeMap : Record<string, string> = {
+const contentTypeMap: Record<string, string> = {
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8",
@@ -32,10 +33,10 @@ const contentTypeMap : Record<string, string> = {
  * Get the content type of a URL
  * @param url
  */
-export function contentType(url : string) {
+export function contentType(url: string) {
     let lower = url.toLowerCase();
 
-    for (let [ extension, type ] of Object.entries(contentTypeMap)) {
+    for (let [extension, type] of Object.entries(contentTypeMap)) {
         if (lower.endsWith(extension)) {
             return type;
         }
@@ -44,8 +45,9 @@ export function contentType(url : string) {
     return "application/octet-stream";
 }
 
-export function fileExists(file : string) {
-    return fs.promises.access(file, fs.constants.F_OK)
+export function fileExists(file: string) {
+    return fs.promises
+        .access(file, fs.constants.F_OK)
         .then(() => true)
         .catch(() => false);
 }
@@ -56,7 +58,7 @@ export function fileExists(file : string) {
  * usually the only useful part, so surface a trimmed slice of it.
  * @param error Any thrown value
  */
-export function describeError(error : unknown) : string {
+export function describeError(error: unknown): string {
     if (error === null || error === undefined) {
         return "unknown error";
     }
@@ -65,13 +67,14 @@ export function describeError(error : unknown) : string {
         return error;
     }
 
-    let parts : string[] = [];
+    let parts: string[] = [];
     let anyError = error as Record<string, unknown>;
 
     if (error instanceof Error) {
         parts.push(`${error.name}: ${error.message}`);
     } else {
-        parts.push(String(error));
+        // String() on a plain object only yields "[object Object]".
+        parts.push(inspect(error, { depth: 2, breakLength: Infinity }));
     }
 
     if (typeof anyError.code === "string" || typeof anyError.code === "number") {
@@ -80,7 +83,7 @@ export function describeError(error : unknown) : string {
 
     let stderr = anyError.stderr;
 
-    if (stderr) {
+    if (typeof stderr === "string" || Buffer.isBuffer(stderr)) {
         let text = stderr.toString().trim();
         if (text) {
             parts.push(`stderr=${truncate(text, 2000)}`);
@@ -95,7 +98,7 @@ export function describeError(error : unknown) : string {
  * @param value Input string
  * @param maxLength Maximum length of the returned string (excluding the marker)
  */
-export function truncate(value : string, maxLength : number) {
+export function truncate(value: string, maxLength: number) {
     if (value.length <= maxLength) {
         return value;
     }
@@ -107,7 +110,7 @@ export function truncate(value : string, maxLength : number) {
  * Escape a string for safe interpolation into HTML text/attribute content.
  * @param value Input string
  */
-export function escapeHtml(value : string) {
+export function escapeHtml(value: string) {
     return value
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")

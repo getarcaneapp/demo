@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const [ baseUrl, username, password ] = process.argv.slice(2);
+const [baseUrl, username, password] = process.argv.slice(2);
 
 if (!baseUrl || !username || !password) {
     console.error("Usage: bootstrap-arcane-instance.mjs <base-url> <username> <password>");
@@ -18,19 +18,19 @@ const apiBaseUrl = new URL("/api", ensureTrailingSlash(baseUrl)).toString().repl
 // the steps that are still outstanding.
 const states = [
     {
-        credentials: [ DEFAULT_USERNAME, DEFAULT_PASSWORD ],
+        credentials: [DEFAULT_USERNAME, DEFAULT_PASSWORD],
         needsPasswordChange: true,
         needsRename: true,
     },
     {
         // Password already rotated, rename did not land.
-        credentials: [ DEFAULT_USERNAME, password ],
+        credentials: [DEFAULT_USERNAME, password],
         needsPasswordChange: false,
         needsRename: true,
     },
     {
         // Fully bootstrapped already.
-        credentials: [ username, password ],
+        credentials: [username, password],
         needsPasswordChange: false,
         needsRename: false,
     },
@@ -118,9 +118,11 @@ async function requestJson(path, options) {
         method: options.method,
         headers: {
             "Content-Type": "application/json",
-            ...(options.token ? {
-                "Authorization": `Bearer ${options.token}`,
-            } : {}),
+            ...(options.token
+                ? {
+                      Authorization: `Bearer ${options.token}`,
+                  }
+                : {}),
         },
         body: options.body ? JSON.stringify(options.body) : undefined,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT),
@@ -130,7 +132,9 @@ async function requestJson(path, options) {
     const payload = text ? safeJsonParse(text) : {};
 
     if (!response.ok) {
-        const error = new Error(`Request failed for ${path}: ${response.status} ${response.statusText} ${JSON.stringify(payload)}`);
+        const error = new Error(
+            `Request failed for ${path}: ${response.status} ${response.statusText} ${JSON.stringify(payload)}`,
+        );
         error.status = response.status;
         throw error;
     }

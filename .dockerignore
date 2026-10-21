@@ -4,11 +4,11 @@ node_modules
 .idea
 tmp
 /private
+dist
 
 # Docker extra
 .editorconfig
 .env.sample
-.eslintrc.cjs
 .git
 .gitignore
 README.md
