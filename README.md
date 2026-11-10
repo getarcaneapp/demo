@@ -53,6 +53,24 @@ commented. Worth knowing:
   `compose-demo.yaml` images, so new sessions run the latest Arcane.
 - `APP_URL` — the public origin. Required.
 
+## Registry login
+
+`compose-demo.yaml` uses `dhi.io/docker-dind:29-alpine` (a Docker Hardened
+Image). dhi.io refuses anonymous pulls. The pulls run through the docker CLI
+inside the Demo Kuma container, so the login has to be in a docker config that
+container can read. `compose.yaml` mounts `./private/docker-config` (gitignored)
+at `/root/.docker`.
+
+1. Create a Docker Hub personal access token with read-only scope.
+2. Log in, saving the login into that directory:
+    ```bash
+    docker --config ./private/docker-config login dhi.io -u <dockerhub-user>
+    ```
+3. Restart the stack: `docker compose up -d`.
+
+Store the login in the file, not in a credential helper (`credsStore`). The
+container has no helper binary.
+
 `GET /healthz` reports session count and Docker reachability, and backs the
 container healthcheck.
 

@@ -15,6 +15,7 @@ services:
       - ./compose-demo.yaml:/app/compose-demo.yaml
       - ./scripts:/app/scripts:ro
       - demo-kuma-runtime:/app/runtime
+      - ./private/docker-config:/root/.docker:ro
     healthcheck:
       test:
         [

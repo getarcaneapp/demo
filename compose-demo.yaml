@@ -1,6 +1,6 @@
 services:
   dind:
-    image: docker:29-dind
+    image: dhi.io/docker-dind:29-alpine
     privileged: true
     restart: no
     cpus: 2
