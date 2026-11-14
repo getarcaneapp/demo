@@ -69,7 +69,7 @@ services:
         max-file: "2"
 
   main:
-    image: ghcr.io/getarcaneapp/arcane:latest
+    image: getarcaneapp/manager:latest
     restart: no
     pull_policy: missing
     cpus: 2
@@ -81,9 +81,10 @@ services:
       - arcane-projects:/app/data/projects
 
     environment:
-      - APP_URL=${APP_URL}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - JWT_SECRET=${JWT_SECRET}
+      - ARCANE_APP_URL=${APP_URL}
+      - ARCANE_ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - ARCANE_DEFAULT_ADMIN_USERNAME=${DEMO_USERNAME:-arcane}
+      - ARCANE_DEFAULT_ADMIN_PASSWORD=${DEMO_PASSWORD:-}
       - DOCKER_HOST=tcp://docker-socket-proxy:2375
 
     networks:

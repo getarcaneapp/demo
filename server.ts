@@ -2,7 +2,7 @@ import "dotenv/config";
 import { NotReadyError, Pool, SessionLimitError } from "./pool";
 import * as http from "http";
 import { Duplex } from "stream";
-import httpProxy from "http-proxy";
+import { createProxyServer } from "http-proxy-3";
 import ejs from "ejs";
 import fs from "fs/promises";
 import path from "path";
@@ -40,7 +40,7 @@ const maxProxyRetries = 2;
 const rateLimitSweepInterval = 60000;
 
 const pool = new Pool();
-const proxy = httpProxy.createProxyServer({
+const proxy = createProxyServer({
     ws: true,
     // Deliberately NOT changeOrigin: rewriting Host to the container IP makes
     // Arcane's websocket origin check compare the browser's Origin against

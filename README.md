@@ -31,7 +31,7 @@ https://demo.getarcane.app/start-demo
     ```bash
     docker compose up -d --build
     ```
-    On first boot, Demo Kuma will generate `ENCRYPTION_KEY` and `JWT_SECRET` with `openssl rand -base64 32` automatically and persist them in `/app/runtime`.
+    On first boot, Demo Kuma will generate `ENCRYPTION_KEY` with `openssl rand -base64 32` automatically and persist it in `/app/runtime`. It is passed to each demo instance as `ARCANE_ENCRYPTION_KEY`.
 1. If you are running behind a public domain, set `APP_URL` to the public origin before starting the stack.
 1. Go to http://localhost:3003/start-demo to test the demo.
 
@@ -51,7 +51,8 @@ commented. Worth knowing:
   when this runs behind a reverse proxy you control.
 - `IMAGE_REFRESH_INTERVAL` (900) — seconds between background pulls of the
   `compose-demo.yaml` images, so new sessions run the latest Arcane.
-- `APP_URL` — the public origin. Required.
+- `APP_URL` — the public origin. Required. Passed to each demo instance as
+  `ARCANE_APP_URL`.
 
 ## Registry login
 

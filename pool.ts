@@ -136,7 +136,7 @@ export class Pool {
         console.log(`[${session.projectName}] Starting session (${this.sessionCount()}/${maxSessions} slots used)`);
 
         try {
-            let result = await this.runDockerCompose(session.projectName, ["up", "-d"]);
+            let result = await this.runDockerCompose(session.projectName, ["up", "-d"], session.credentials);
 
             if (result.stderr) {
                 console.log(`[${session.projectName}] compose up: ${truncate(result.stderr.toString().trim(), 2000)}`);
@@ -624,12 +624,13 @@ export class Pool {
     }
 
     /**
-     * Run the bootstrap script that renames the default admin and rotates its
-     * password. Retried because Arcane can accept connections a moment before its
-     * auth tables are usable; the script itself is idempotent.
+     * Run the bootstrap script that confirms the session credentials, which the
+     * stack seeds through ARCANE_DEFAULT_ADMIN_USERNAME / _PASSWORD, can log in.
+     * Retried because Arcane can accept connections a moment before its auth
+     * tables are usable; the script itself is idempotent.
      * @param projectName Compose project name (for logging)
      * @param baseURL Instance base URL
-     * @param credentials Credentials to install on the instance
+     * @param credentials Credentials seeded on the instance
      */
     private async bootstrapArcaneInstance(projectName: string, baseURL: string, credentials: SessionCredentials) {
         let attempts = 3;
@@ -668,9 +669,9 @@ export class Pool {
         throw new Error(`Bootstrap failed after ${attempts} attempts: ${describeError(lastError)}`);
     }
 
-    private async runDockerCompose(projectName: string, args: string[]) {
-        if (!process.env.ENCRYPTION_KEY || !process.env.JWT_SECRET) {
-            throw new Error("ENCRYPTION_KEY and JWT_SECRET must be set");
+    private async runDockerCompose(projectName: string, args: string[], credentials?: SessionCredentials) {
+        if (!process.env.ENCRYPTION_KEY) {
+            throw new Error("ENCRYPTION_KEY must be set");
         }
 
         return childProcessAsync.spawn(
@@ -682,6 +683,12 @@ export class Pool {
                 env: {
                     ...process.env,
                     DOCKER_NETWORK_NAME: dockerNetwork,
+                    ...(credentials
+                        ? {
+                              DEMO_USERNAME: credentials.username,
+                              DEMO_PASSWORD: credentials.password,
+                          }
+                        : {}),
                 },
             },
         );

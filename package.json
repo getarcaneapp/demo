@@ -27,12 +27,11 @@
         "dotenv": "~10.0.0",
         "ejs": "~3.1.9",
         "http-graceful-shutdown": "~3.1.13",
-        "http-proxy": "~1.18.1",
+        "http-proxy-3": "~2.0.2",
         "promisify-child-process": "~4.1.2"
     },
     "devDependencies": {
         "@types/ejs": "^3.1.5",
-        "@types/http-proxy": "^1.17.14",
         "@types/node": "~24.19.2",
         "concurrently": "^8.2.2",
         "cross-env": "~7.0.3",
